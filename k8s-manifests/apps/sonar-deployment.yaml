@@ -138,6 +138,11 @@ spec:
                 secretKeyRef:
                   key: password
                   name: sonar-postgres-secrets
+            - name: test
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: sonar-postgres-secrets
           volumeMounts:
             - mountPath: /opt/sonarqube/data/
               name: sonar-data
