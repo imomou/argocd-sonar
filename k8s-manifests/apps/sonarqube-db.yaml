@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresdb
+  namespace: sonarqube
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonar-postgres-deployment
+  namespace: sonarqube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonar-postgres
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: sonar-postgres
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: sonar-postgres-secrets
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: sonar-postgres-secrets
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  key: db_name
+                  name: sonar-postgres-config
+          image: postgres:10.18
+          name: postgres
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/
+              name: sonar-postgredb
+      volumes:
+        - name: sonar-postgredb
+          persistentVolumeClaim:
+            claimName: postgresdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonar-postgres-service
+  namespace: sonarqube
+spec:
+  ports:
+    - port: 5432
+      protocol: TCP
+      targetPort: 5432
+  selector:
+    app: sonar-postgres
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+data:
+  db_name: sonar_db
+kind: ConfigMap
+metadata:
+  name: sonar-postgres-config
+  namespace: sonarqube
+---
+apiVersion: v1
+data:
+  password: c29uYXJfZGJfcGFzc3dvcmQ=
+  username: c29uYXJfZGJfdXNlcg==
+kind: Secret
+metadata:
+  name: sonar-postgres-secrets
+  namespace: sonarqube
+type: Opaque
